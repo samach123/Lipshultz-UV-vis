@@ -203,7 +203,7 @@ with mainPlot:
             if "fileType" not in st.session_state:
                 st.session_state["fileType"] = "png"
             if "minZero" not in st.session_state:
-                st.session_state["fileType"] = True
+                st.session_state["minZero"] = True
             
             st.header("Main Plot")
             dataWrapper.formatData(xRange = None, normalize = normalize, normRange = normRange, xType = "wavelength", inclusion = includeList, aboveZero = st.session_state["minZero"])
