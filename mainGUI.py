@@ -115,7 +115,6 @@ with uploadAndSelect:
             if dataWrapper is not None:
                 st.header("Trace Selection")
                 normalize = st.toggle("Normalize?", value = True, key = "normalize")
-
                 numTraces = int(len(dataWrapper.names))
                 gridSpec = [1] * numTraces # one row for each trace
                 miniPlotGrid = grid(*gridSpec)
@@ -203,9 +202,10 @@ with mainPlot:
         if dataWrapper is not None:
             if "fileType" not in st.session_state:
                 st.session_state["fileType"] = "png"
-
+            if "minZero" not in st.session_state:
+                st.session_state["minZero"] = True
             st.header("Main Plot")
-            dataWrapper.formatData(xRange = None, normalize = normalize, normRange = normRange, xType = "wavelength", inclusion = includeList)
+            dataWrapper.formatData(xRange = None, normalize = normalize, normRange = normRange, xType = "wavelength", inclusion = includeList, aboveZero = st.session_state["minZero"])
             plotter = Plotter(dataWrapper)
             
 
@@ -240,6 +240,11 @@ with mainPlot:
             plotter.dataObj.formatData(xRange = range_to_nm(xRange, units), normalize = normalize, normRange = normRange, xType = units, inclusion = includeList)
             plotter.updateMainPlot()
             st.plotly_chart(plotter.mainFig)
+            
+            minZero = st.toggle("Minimize at 0?", value = st.session_state["minZero"], key = "minZero")
+            if minZero != st.session_state["minZero"]:
+                st.session_state["minZero"] = minZero
+                st.rerun()
 
             st.divider()
             st.subheader("Download")
