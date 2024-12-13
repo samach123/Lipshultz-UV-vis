@@ -10,7 +10,6 @@ from plotly.subplots import make_subplots
 import scipy.constants as cnst
 from codechembook.chemtools import chemSymbols as cs
 import plotly.colors as pc
-from tkinter.filedialog import askopenfilename
 
 def fileParser(file, makeDataFolder = False):
     """
@@ -323,10 +322,6 @@ class DataWrapper:
     def update(self, **kwargs):
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
-    
-    def askForFile(self):
-        rawData = askopenfilename(title = "Select the Raw Data File", filetypes = [("XML Files", "*.xml"), ("All Files", "*.*")])
-        self.raw = rawData 
 
     def parseData(self, makeDataFolder = False):
         self.x, self.y, self.names = fileParser(self.raw, makeDataFolder = makeDataFolder)
