@@ -79,7 +79,7 @@ def handleException(ex):
         Noah's email: njschwartzapfel@gmail.com
         """)
 
-errorTest = True
+errorTest = False
 
 # title
 st.title("UV-Vis Analysis Tool")
