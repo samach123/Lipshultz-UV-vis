@@ -203,7 +203,8 @@ with mainPlot:
             if "fileType" not in st.session_state:
                 st.session_state["fileType"] = "png"
             if "minZero" not in st.session_state:
-                st.session_state["minZero"] = True
+                st.session_state["fileType"] = True
+            
             st.header("Main Plot")
             dataWrapper.formatData(xRange = None, normalize = normalize, normRange = normRange, xType = "wavelength", inclusion = includeList, aboveZero = st.session_state["minZero"])
             plotter = Plotter(dataWrapper)
@@ -237,11 +238,11 @@ with mainPlot:
                 key = f"slider_xRange"
             )
 
-            plotter.dataObj.formatData(xRange = range_to_nm(xRange, units), normalize = normalize, normRange = normRange, xType = units, inclusion = includeList)
+            plotter.dataObj.formatData(xRange = range_to_nm(xRange, units), normalize = normalize, normRange = normRange, xType = units, inclusion = includeList, aboveZero = st.session_state["minZero"])
             plotter.updateMainPlot()
             st.plotly_chart(plotter.mainFig)
             
-            minZero = st.toggle("Minimize at 0?", value = st.session_state["minZero"], key = "minZero")
+            minZero = st.toggle("Minimize at 0?", value = True, key = "minZero")
             if minZero != st.session_state["minZero"]:
                 st.session_state["minZero"] = minZero
                 st.rerun()
