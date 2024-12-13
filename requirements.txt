@@ -1,0 +1,7 @@
+streamlit
+streamlit-extras
+numpy
+plotly
+scipy
+codechembook
+tkinter
