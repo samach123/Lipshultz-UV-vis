@@ -121,7 +121,7 @@ def fileParser(file, makeDataFolder = False):
     return wavelengths, absorbances, names
     
 
-def seriesFormat(wavelengths, absorbances, xRange = None, normalize = True, normMethod = "maxdiv", normRange = None, xType = "wavelength", inclusion = None):
+def seriesFormat(wavelengths, absorbances, xRange = None, normalize = True, normMethod = "maxdiv", normRange = None, xType = "wavelength", aboveZero = True, inclusion = None):
     """
     takes in parsed absorbance and wavelength data and outputs formatted data for later plotting
 
@@ -174,7 +174,10 @@ def seriesFormat(wavelengths, absorbances, xRange = None, normalize = True, norm
         plotY: list of Numpy arrays where each array is the normalized and sliced absorbance data
         xAxisTitle: str which corresponds to x-axis title according to xType
     """
-
+    if aboveZero:
+        for i,absorb in enumerate(absorbances):
+            absorbances[i] -= min(absorb)
+            
     # generates a boolean mask for each trace according to the desired range
     if xRange is not None:
         rangeMasks = []
