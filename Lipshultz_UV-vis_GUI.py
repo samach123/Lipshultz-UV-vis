@@ -119,10 +119,11 @@ with uploadAndSelect:
                 st.session_state["raw"] = getHash(dataUpload)
             
             if dataUpload is not None:
-                dataWrapper = DataWrapper(dataUpload)
+                dataWrapper = DataWrapper(raw = dataUpload)
                 try:
                     dataWrapper.parseData()
                     st.success("File parsed successfully!")
+                    plotter = Plotter(dataWrapper)
                 except ParseError as ex:
                     st.error("Error: Invalid File")
                     st.exception(ex)
@@ -136,36 +137,24 @@ with uploadAndSelect:
         
         with miniPlotPanel: # each trace will be in its own plotly plot to select normalization range (and to actually include it or not in the main plot)
             if dataWrapper is not None:
-        
+
                 numTraces = int(len(dataWrapper.x))
 
                 st.header("Trace Selection")
                 normalize = st.toggle("Normalize?", value = True, key = "normalize")
                 gridSpec = [1] * numTraces # one row for each trace
                 miniPlotGrid = grid(*gridSpec)
-
-                minX = float(min([min(x) for x in dataWrapper.x]))
-                maxX = float(max([max(x) for x in dataWrapper.x]))
                 
                 if "includeList" not in st.session_state:
                     st.session_state["includeList"] = [True for i in range(numTraces)]
 
                  # initializing boolean mask for which traces to include
-                normRange = [(minX,maxX) for i in range(numTraces)] # initializing list of normalization ranges for each trace
+                normRange = [(minX,maxX) for minX,maxX in zip(dataWrapper.minX, dataWrapper.maxX)] # initializing list of normalization ranges for each trace
                 
                 # initializing the normRange and fig states for each trace in session_state
                 for i,(x,y) in enumerate(zip(dataWrapper.x, dataWrapper.y)):
                     if f"normRange_{i}" not in st.session_state: # selected normalization range
-                        st.session_state[f"normRange_{i}"] = (minX,maxX)
-
-                    if f"fig_{i}" not in st.session_state: # figure object
-                        fig = make_subplots()
-                        fig.add_scatter(x=x, y=y, mode="lines", showlegend=False)
-                        fig.update_xaxes(title="Wavelength (nm)", range = [minX, maxX])
-                        fig.update_yaxes(title="Absorbance")
-                        fig.update_layout(template="simple_white")
-
-                        st.session_state[f"fig_{i}"] = fig
+                        st.session_state[f"normRange_{i}"] = (dataWrapper.minX[i],dataWrapper.maxX[i])
                     
                     if f"include_{i}" not in st.session_state:
                         st.session_state[f"include_{i}"] = True
@@ -184,16 +173,9 @@ with uploadAndSelect:
 
                         with plotContainer:
                             st.subheader(name)
-                            currentFig = st.session_state[f"fig_{i}"]
-
-                            if normalize:
-                                normLeft,normRight = st.session_state[f"normRange_{i}"]
                             
-                                currentFig["layout"]["shapes"] = [] # removes all previous vertical lines from fig
-
-                                # vertical lines that show selected norm range
-                                currentFig.add_shape(x0 = normLeft, x1 = normLeft, y0 = 0, y1 = 1, xref = "x", yref = "paper", type = "line", line = dict(color = "orange", dash = "dash", width = 2), opacity = 0.8)
-                                currentFig.add_shape(x0 = normRight, x1 = normRight, y0 = 0, y1 = 1, xref = "x", yref = "paper", type = "line", line = dict(color = "orange", dash = "dash", width = 2), opacity = 0.8)
+                            currentFig = plotter.miniPlots[i]
+                            plotter.updateMiniPlot(i, normRange = st.session_state[f"normRange_{i}"] if normalize else None)
                 
                             if normalize:
                                 # listens for selection
@@ -204,13 +186,13 @@ with uploadAndSelect:
                                     st.session_state[f"normRange_{i}"] = (float(min(selectRange)), float(max(selectRange)))
                                     st.rerun() # immediately carries updated session_state across the plot
                             else:
-                                currentFig["layout"]["shapes"] = []
+                                plotter.updateMiniPlot(i)
                                 st.plotly_chart(currentFig, key = f"chart_{i}")
 
                         if normalize:
                             normRangeSelection = st.slider("Select range to normalize against:",
-                            min_value = minX,
-                            max_value = maxX,
+                            min_value = dataWrapper.minX[i],
+                            max_value = dataWrapper.maxX[i],
                             value = st.session_state[f"normRange_{i}"], # if you select on the plot, the slider is updated too
                             step = 0.01,
                             key = f"slider_{i}"
@@ -228,7 +210,7 @@ with uploadAndSelect:
                 with sidebar:
                     for i,name in enumerate(dataWrapper.names):
                         st.subheader(name)
-                        st.plotly_chart(st.session_state[f"fig_{i}"])
+                        st.plotly_chart(plotter.miniPlots[i])
                         include = st.toggle("Include?", value = st.session_state[f"include_{i}"], key = f"includeToggleSidebar_{i}") # whether to include trace in main plot
                         
                         if include is not st.session_state[f"include_{i}"]:
@@ -246,6 +228,8 @@ with uploadAndSelect:
 with mainPlot:
     try:
         if dataWrapper is not None:
+            minX = min(dataWrapper.minX)
+            maxX = max(dataWrapper.maxX)
             defaults = {
                 "fileType": "png",
                 "minZero": True,
@@ -260,7 +244,6 @@ with mainPlot:
                     st.session_state[default] = defaults[default]
         
             dataWrapper.formatData(xRange_in_nm = range_to_nm(st.session_state["mainRange"], st.session_state["units"]), normalize = normalize, normRange = normRange, xType = st.session_state["units"], inclusion = st.session_state["includeList"], aboveZero = st.session_state["minZero"])
-            plotter = Plotter(dataWrapper)
             plotter.updateMainPlot()
             
             st.header("Main Plot")
@@ -317,7 +300,6 @@ with mainPlot:
             minZero = st.toggle("Minimize at 0?", value = st.session_state["minZero"], key = "minZeroToggle")
             if minZero is not st.session_state["minZero"]:
                 st.session_state["minZero"] = minZero
-
                 st.rerun()
             
             st.divider()
@@ -375,5 +357,3 @@ try:
 
 except Exception as ex:
     handleException(ex)
-
-

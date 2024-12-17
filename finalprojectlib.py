@@ -44,7 +44,8 @@ class DataWrapper:
 
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
-
+        
+        self.xAxisTitle = ""
     def __getattr__(self, attr):
         return None
 
@@ -450,7 +451,7 @@ class Plotter:
 
 # test case
 if __name__ == "__main__":
-    data = DataWrapper(raw = r"G:\Shared drives\Chemistry_LipshultzGroup\Data\Alumni\ALM\ALM-I-UV_VIS\ALM-I-185\RAW DATA\ALM-I-185.xml")
+    data = DataWrapper(raw = r"G:\Shared drives\Chemistry_LipshultzGroup\Data\Alumni\ALM\ALM-I-UV_VIS\ALM-I-279\RAW DATA\ALM-I-279.xml")
     data.parseData()
     data.formatData(xRange_in_nm = None, normalize = True)
     plotter = Plotter(data)
