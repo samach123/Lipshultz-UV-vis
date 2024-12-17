@@ -268,7 +268,8 @@ class DataWrapper:
         # transforms wavelength x-data into proper units
         match xType:
             case "wavelength":
-                xAxisTitle = "wavelength (nm)"
+                self.units = "wavelength"
+                self.xAxisTitle = "wavelength (nm)"
 
             case "wavenumbers":
                 for i,wn in enumerate(plotX):
@@ -277,7 +278,8 @@ class DataWrapper:
                     if maxWLs is not None:
                         maxWLs[i] = (10**7)/maxWLs[i]
                 
-                xAxisTitle = f"wavenumbers (cm{cs("^-")}{cs("^1")})"
+                self.units = "wavenumbers"
+                self.xAxisTitle = f"wavenumbers (cm{cs("^-")}{cs("^1")})"
 
             case "electronvolts":
                 for i,eV in enumerate(plotX):
@@ -286,7 +288,8 @@ class DataWrapper:
                     if maxWLs is not None:
                         maxWLs[i] =  (cnst.h * cnst.c * (10**9))/(cnst.e * maxWLs[i])
                 
-                xAxisTitle = "energy (eV)"
+                self.units = "electronvolts"
+                self.xAxisTitle = "energy (eV)"
         
         plotDataSeries = [plotX, plotY, maxWLs, self.names]
         if inclusion is not None:
@@ -305,7 +308,6 @@ class DataWrapper:
                 plotDataSeries[i] = temp
         
         self.plotX, self.plotY, self.maxWLs, self.names= plotDataSeries
-        self.xAxisTitle = xAxisTitle
     
     def makeFolder(self):
         zip_buffer = io.BytesIO()
@@ -349,20 +351,6 @@ class DataWrapper:
                 titles.append(title)
         
         self.titles = titles
-    
-    def setUnits(self):
-        match self.xAxisTitle:
-            case "wavelength (nm)":
-                self.units = "nm"
-            
-            case xAxisTitle if "cm" in xAxisTitle:
-                self.units = f"cm{cs("^-")}{cs("^1")}"
-            
-            case "energy (J)":
-                self.units = "J"
-            
-            case "energy (eV)":
-                self.units = "eV"
 
 class Plotter:
     """
@@ -370,6 +358,8 @@ class Plotter:
     """
     def __init__(self, dataObj):
         self.dataObj = dataObj
+        self.units = dataObj.units
+        self.xAxisTitle = dataObj.xAxisTitle
 
         plotTitles = []
         for name in self.dataObj.names:
@@ -379,19 +369,6 @@ class Plotter:
                 plotTitles.append(title)
         
         self.plotTitles = plotTitles
-
-        match self.dataObj.xAxisTitle:
-            case "wavelength (nm)":
-                self.units = "nm"
-            
-            case xAxisTitle if "cm" in xAxisTitle:
-                self.units = f"cm{cs("^-")}{cs("^1")}"
-            
-            case "energy (J)":
-                self.units = "J"
-            
-            case "energy (eV)":
-                self.units = "eV"
 
         self.miniPlots = []
         for xData,yData in zip(self.dataObj.x, self.dataObj.y):
@@ -438,7 +415,8 @@ class Plotter:
              for i, (name, color) in enumerate(zip(self.dataObj.names, traceColors)):
                 fig.update_traces(selector = i, name = name)
         
-        fig.update_xaxes(title = self.dataObj.xAxisTitle)
+        fig.update_xaxes(title = self.xAxisTitle)
+        
         if self.dataObj.normalize is True:
             fig.update_yaxes(title = "absorbance<br>(normalized)", range = [0,1.1])
         else:
