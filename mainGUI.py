@@ -1,19 +1,27 @@
 """
-stuff goes here
+Main GUI for Lipshultz group UV-vis plotting utility "mainGUI.py"
+
+programmed by: Noah Schwartzapfel
+currently maintained by: Noah Schwartzapfel
+
+for easy processing of Shimadzu UV-vis data into custom plots
+containing several data series with normalization of maxima
+
+made to run on Streamlit community cloud
+
+see GitHub for commit history (i'm lazy)
 """
-import streamlit as st
-from streamlit_extras.grid import grid
-import numpy as np
-from plotly.subplots import make_subplots
-from scipy.constants import h,c,e
-from finalprojectlib import DataWrapper, Plotter
-import io
-from plotly.io import write_image
-from xml.etree.ElementTree import ParseError
-import zipfile
-from datetime import datetime
-import traceback
-import hashlib
+import streamlit as st # for GUI business
+from streamlit_extras.grid import grid # b/c streamlit hates nested GUI elements
+from scipy.constants import h,c,e # for unit conversions
+from finalprojectlib import DataWrapper, Plotter # for data processing and formatting and plot generation
+import io # for handling byte data
+from plotly.io import write_image # for generating images
+from xml.etree.ElementTree import ParseError # if file parsing fails
+import zipfile # for generating zip folders
+from datetime import datetime # for getting time of day of error
+import traceback # for getting exception tracebacks
+import hashlib # for getting hashes for file content comparison
 
 # takes a number (having to do with photon energy) in whatever units and outputs it into nm 
 def to_nm(num, units):
@@ -21,7 +29,7 @@ def to_nm(num, units):
         return (1/num) * (10**7) 
     elif units == "electronvolts":
         return ((h/e)*c/num) * (10**9)
-    else:
+    elif units == "wavelength":
         return num
 
 # applies to_nm() to a range, yes im this lazy, it saves time
@@ -31,26 +39,25 @@ def range_to_nm(xRange, units):
         nmRange.append(to_nm(num, units))
     return sorted(nmRange)
 
-# writes image data as bytes to buffer
+# writes image data as bytes
 # (this took a while to understand)
 def generate_download(fig, format):
     buffer = io.BytesIO()
-    write_image(fig, file = buffer, format = format)
+    write_image(fig, file = buffer, format = format) # writing image to buffer
     buffer.seek(0)
 
     return buffer
 
 # generates error folder containing txt file of exception and data file 
 def getErrorFolder(ex, data = None):
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") # gets time of error
     folderName = f"error_{timestamp}"
-    zipBuffer = io.BytesIO()
     
-
+    zipBuffer = io.BytesIO()
     with zipfile.ZipFile(zipBuffer, "w", zipfile.ZIP_DEFLATED) as zipFile:
-        zipFile.writestr(f"{folderName}/exception.txt", f"{type(ex).__name__}: {str(ex)}\n\n{traceback.format_exc()}")
+        zipFile.writestr(f"{folderName}/exception.txt", f"{type(ex).__name__}: {str(ex)}\n\n{traceback.format_exc()}") # prints <exception name>: <exception description>\n\n<traceback> to txt file
 
-        if data is not None:
+        if data is not None: # writes XML file
             zipFile.writestr(f"{folderName}/error_data.xml", data)
 
     zipBuffer.seek(0)
@@ -58,14 +65,14 @@ def getErrorFolder(ex, data = None):
     return zipBuffer, folderName
 
 def handleException(ex):
-    st.header("🚨Error!🚨")
+    st.header("🚨Error!🚨") # you can use emoji inline what a wonder of modern technology
     st.exception(ex)
     st.divider()
     
     if dataWrapper is not None:
         dataWrapper.raw.seek(0)
         byteData = dataWrapper.raw.read()
-        errorZip, folderName = getErrorFolder(ex, data = byteData)
+        errorZip, folderName = getErrorFolder(ex, data = byteData) # generates zip folder of exception and data (if present)
     else:
         errorZip, folderName = getErrorFolder(ex)
     
@@ -81,8 +88,9 @@ def handleException(ex):
     Please send this folder along with a description of what happened
     to either Noah Schwartzapfel or whoever is managing this app.\n
     Noah's email: njschwartzapfel@gmail.com
-    """)
+    """) # if someone else is managing this they'd put their info here
 
+# used to get file hash to compare file contents
 def getHash(file):
     file.seek(0)
     hash = hashlib.sha256(file.read()).hexdigest()
@@ -90,9 +98,10 @@ def getHash(file):
 
     return hash
 
+# whether to include the developer tools menu at bottom
 developerMode = True
 
-# title
+# VVV where the actual GUI begins VVV
 st.title("UV-Vis Analysis Tool")
 
 # tabs
@@ -110,10 +119,14 @@ with uploadAndSelect:
             st.header("File Upload")
             dataWrapper = None
             dataUpload = st.file_uploader("Choose raw data file", type=["xml"]) # just XML for now, i'd do CSV but that means people can edit the CSVs in excel, and people editing stuff gives me, the programmer, great pain
-           
-            if "raw" not in st.session_state:
+
+            # to whoever doesn't know:
+            # st.session_state is a dict containing data that's maintained after every rerun
+            if "raw" not in st.session_state: # initializing raw data
                 st.session_state["raw"] = None
             
+            # if there's another upload who's contents are different
+            # (st.file_uploader returns a different object at every rerun so you have to compare the hashes, whyyyyy)
             if (dataUpload is not None) and (getHash(dataUpload) != st.session_state["raw"]):
                 st.session_state = {}
                 st.session_state["raw"] = getHash(dataUpload)
@@ -127,8 +140,7 @@ with uploadAndSelect:
                 except ParseError as ex:
                     st.error("Error: Invalid File")
                     st.exception(ex)
-                    
-                    dataWrapper = None
+                    dataWrapper = None # prevents rest of GUI from generating
             
             else:
                 dataWrapper = None 
@@ -137,23 +149,23 @@ with uploadAndSelect:
         
         with miniPlotPanel: # each trace will be in its own plotly plot to select normalization range (and to actually include it or not in the main plot)
             if dataWrapper is not None:
-
                 numTraces = int(len(dataWrapper.x))
 
                 st.header("Trace Selection")
-                normalize = st.toggle("Normalize?", value = True, key = "normalize")
+                normalize = st.toggle("Normalize?", value = True, key = "normalizeToggle") # whether to normalize or just use raw data
+
                 gridSpec = [1] * numTraces # one row for each trace
                 miniPlotGrid = grid(*gridSpec)
                 
                 if "includeList" not in st.session_state:
-                    st.session_state["includeList"] = [True for i in range(numTraces)]
+                    st.session_state["includeList"] = [True for i in range(numTraces)] # include everything by default
 
-                 # initializing boolean mask for which traces to include
-                normRange = [(minX,maxX) for minX,maxX in zip(dataWrapper.minX, dataWrapper.maxX)] # initializing list of normalization ranges for each trace
+                # initially full domain for each trace
+                normRange = [(minX,maxX) for minX,maxX in zip(dataWrapper.minX, dataWrapper.maxX)]
                 
                 # initializing the normRange and fig states for each trace in session_state
                 for i,(x,y) in enumerate(zip(dataWrapper.x, dataWrapper.y)):
-                    if f"normRange_{i}" not in st.session_state: # selected normalization range
+                    if f"normRange_{i}" not in st.session_state:
                         st.session_state[f"normRange_{i}"] = (dataWrapper.minX[i],dataWrapper.maxX[i])
                     
                     if f"include_{i}" not in st.session_state:
@@ -169,12 +181,14 @@ with uploadAndSelect:
                         if include is not st.session_state[f"include_{i}"]:
                             st.session_state["includeList"][i] = include
                             st.session_state[f"include_{i}"] = include
-                            st.rerun()
+                            st.rerun() # carries changes to session_state back to top of code
 
                         with plotContainer:
                             st.subheader(name)
                             
                             currentFig = plotter.miniPlots[i]
+
+                            # generates the miniplot with norm bounds drawn if normalize toggle is on
                             plotter.updateMiniPlot(i, normRange = st.session_state[f"normRange_{i}"] if normalize else None)
                 
                             if normalize:
@@ -184,7 +198,7 @@ with uploadAndSelect:
                                 if selectEvent["selection"]["box"] != []:
                                     selectRange = selectEvent["selection"]["box"][0]["x"] # whoever the people are that program plotly need to realize that just because you *can* nest dicts in dicts doesn't mean you always *should*
                                     st.session_state[f"normRange_{i}"] = (float(min(selectRange)), float(max(selectRange)))
-                                    st.rerun() # immediately carries updated session_state across the plot
+                                    st.rerun()
                             else:
                                 plotter.updateMiniPlot(i)
                                 st.plotly_chart(currentFig, key = f"chart_{i}")
@@ -207,7 +221,7 @@ with uploadAndSelect:
                             normRange = None
                 
             if dataWrapper is not None:
-                with sidebar:
+                with sidebar: # used when going to main plot tab, easy to see which plots are selected and where the normalization is
                     for i,name in enumerate(dataWrapper.names):
                         st.subheader(name)
                         st.plotly_chart(plotter.miniPlots[i])
@@ -230,6 +244,8 @@ with mainPlot:
         if dataWrapper is not None:
             minX = min(dataWrapper.minX)
             maxX = max(dataWrapper.maxX)
+            
+            # <initializing session_state>
             defaults = {
                 "fileType": "png",
                 "minZero": True,
@@ -242,7 +258,9 @@ with mainPlot:
             for default in defaults:
                 if default not in st.session_state:
                     st.session_state[default] = defaults[default]
-        
+            # </initializing session_state>
+
+            # formatting the data and updating the plot
             dataWrapper.formatData(xRange_in_nm = range_to_nm(st.session_state["mainRange"], st.session_state["units"]), normalize = normalize, normRange = normRange, xType = st.session_state["units"], inclusion = st.session_state["includeList"], aboveZero = st.session_state["minZero"])
             plotter.updateMainPlot()
             
@@ -250,15 +268,16 @@ with mainPlot:
             st.plotly_chart(plotter.mainFig)
                 
             unitsSelection = st.selectbox(
-                    "Choose units for *x*-axis",
+                    "Choose units for x-axis",
                     ["wavelength (nm)", "wavenumbers (cm⁻¹)", "energy (eV)"],
                     index = 0,
                     key = "unitsSelection"
                 )
             
+            # just removes the units in the () to compare with session_state
             units_to_compare = {"wavelength (nm)":"wavelength", 
                 "wavenumbers (cm⁻¹)":"wavenumbers",
-                "energy (eV)":"electronvolts"}[unitsSelection]
+                "energy (eV)":"electronvolts"}[unitsSelection] # this is a clever trick from chatGPT, having a variable key at the end of an explicit dict
             
             if units_to_compare != st.session_state["units"]:
                 match unitsSelection:
@@ -276,6 +295,8 @@ with mainPlot:
                         max_value = (h*c/e)/(minX * (10**-9))
                 
                 st.session_state["units"] = units
+
+                # VVV used for x-range slider VVV
                 st.session_state["mainRange"] = (min_value,max_value)
                 st.session_state["min_value"] = min_value
                 st.session_state["max_value"] = max_value
@@ -293,7 +314,6 @@ with mainPlot:
 
             if xRange != st.session_state["mainRange"]:
                 st.session_state["mainRange"] = xRange
-
                 st.rerun()
 
             
@@ -303,6 +323,7 @@ with mainPlot:
                 st.rerun()
             
             st.divider()
+
             st.subheader("Downloads")
             with st.container():
                 colLeft,colRight = st.columns(2)
@@ -316,13 +337,13 @@ with mainPlot:
                         key = "fileTypeSelection"
                     ).lower()
 
-                    st.session_state["fileType"] = fileType
+                    st.session_state["fileType"] = fileType # this session_state value is being used after this so i don't need to do the whole rerun thing
 
                     mimeType = {
                         "png": "image/png",
                         "jpeg": "image/jpeg",
                         "svg": "image/svg+xml"
-                    }[fileType]
+                    }[fileType] # for streamlit to know what kind of data it's working with (generated from chatGPT of course)
 
                     st.download_button(
                         "Download an image of the plot",
@@ -330,7 +351,7 @@ with mainPlot:
                         file_name = f"{", ".join(plotter.plotTitles)}.{fileType}",
                         mime = mimeType,
                         type = "secondary"
-                    )
+                    ) # image of plot
                 
                 with colRight:
                     st.download_button(
@@ -339,19 +360,22 @@ with mainPlot:
                         file_name = f"{", ".join(plotter.plotTitles)}.zip",
                         mime = "application/zip",
                         type = "secondary"
-                    )
+                    ) # zip of formatted CSV data
 
     except Exception as ex:
         handleException(ex)
+
 try:
     with st.popover("Developer Tools", disabled = not developerMode, use_container_width = True):
-        error = st.button("Throw Error", key = "errorButton")
+        error = st.button("Throw Error", key = "errorButton") # error testing
         if error:
             raise Exception
-        showSessionState = st.button("Show st.session_state", key = "showSessionStateButton")
+
+        showSessionState = st.button("Show st.session_state", key = "showSessionStateButton") # checking session_state
         if showSessionState:
             st.code(f"st.session_state = {st.session_state}")
-        showInclusionList = st.button("Show inclusion list", key = "showIncludeList")
+
+        showInclusionList = st.button("Show inclusion list", key = "showIncludeList") # to see inclusion list
         if showInclusionList:
             st.code(f"{st.session_state["includeList"]}")
 
