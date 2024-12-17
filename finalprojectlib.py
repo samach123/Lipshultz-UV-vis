@@ -45,7 +45,6 @@ class DataWrapper:
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
         
-        self.xAxisTitle = ""
     def __getattr__(self, attr):
         return None
 
@@ -269,7 +268,6 @@ class DataWrapper:
         match xType:
             case "wavelength":
                 self.units = "wavelength"
-                self.xAxisTitle = "wavelength (nm)"
 
             case "wavenumbers":
                 for i,wn in enumerate(plotX):
@@ -279,7 +277,6 @@ class DataWrapper:
                         maxWLs[i] = (10**7)/maxWLs[i]
                 
                 self.units = "wavenumbers"
-                self.xAxisTitle = f"wavenumbers (cm{cs("^-")}{cs("^1")})"
 
             case "electronvolts":
                 for i,eV in enumerate(plotX):
@@ -289,8 +286,7 @@ class DataWrapper:
                         maxWLs[i] =  (cnst.h * cnst.c * (10**9))/(cnst.e * maxWLs[i])
                 
                 self.units = "electronvolts"
-                self.xAxisTitle = "energy (eV)"
-        
+
         plotDataSeries = [plotX, plotY, maxWLs, self.names]
         if inclusion is not None:
             for i,series in enumerate(plotDataSeries):
@@ -308,7 +304,7 @@ class DataWrapper:
                 plotDataSeries[i] = temp
         
         self.plotX, self.plotY, self.maxWLs, self.names= plotDataSeries
-    
+
     def makeFolder(self):
         zip_buffer = io.BytesIO()
 
@@ -358,8 +354,6 @@ class Plotter:
     """
     def __init__(self, dataObj):
         self.dataObj = dataObj
-        self.units = dataObj.units
-        self.xAxisTitle = dataObj.xAxisTitle
 
         plotTitles = []
         for name in self.dataObj.names:
@@ -391,6 +385,18 @@ class Plotter:
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
     
+    def updateUnits(self):
+        match self.dataObj.units:
+            case "wavelength":
+                self.units = "nm"
+                self.xAxisTitle = "wavelength(nm)"
+            case "wavenumbers":
+                self.units = "cm<sup>-1</sup>"
+                self.xAxisTitle = "wavenumbers (cm<sup>-1</sup>)"
+            case "electronvolts":
+                self.units = "eV"
+                self.xAxisTitle = "energy (eV)"
+
     def updateMiniPlot(self, index, normRange = None):
         fig = self.miniPlots[index]
         fig["layout"]["shapes"] = [] # removes all previous vertical lines from fig
@@ -401,6 +407,8 @@ class Plotter:
             fig.add_shape(x0 = normRight, x1 = normRight, y0 = 0, y1 = 1, xref = "x", yref = "paper", type = "line", line = dict(color = "orange", dash = "dash", width = 2), opacity = 0.8)
 
     def updateMainPlot(self):
+        self.updateUnits()
+
         fig = make_subplots()
         colors = pc.qualitative.D3
         traceColors = [colors[i % len(colors)] for i in range(len(self.dataObj.plotX))]
@@ -410,7 +418,7 @@ class Plotter:
         
         if self.dataObj.normalize is True:
             for i, (name, maxWL, color) in enumerate(zip(self.dataObj.names, self.dataObj.maxWLs, traceColors)):
-                fig.update_traces(selector = i, name = f"{name}<br>max absorb @ {maxWL:.2f}{self.units}")
+                fig.update_traces(selector = i, name = f"{name}<br>max absorb @ {maxWL:.2f} {self.units}")
         else:
              for i, (name, color) in enumerate(zip(self.dataObj.names, traceColors)):
                 fig.update_traces(selector = i, name = name)
