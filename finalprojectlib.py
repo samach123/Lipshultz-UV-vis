@@ -253,8 +253,9 @@ class DataWrapper:
         if inclusion is not None:
             for i,series in enumerate(plotDataSeries):
                 
-                if maxWLs is None:
-                    continue  # since maxWLs is a 1D list, not a 2D list
+                if series is maxWLs:
+                    if maxWLs is None:
+                        continue
 
                 temp = []
                 for include,trace in zip(inclusion, series): # applying inclusion mask
