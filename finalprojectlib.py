@@ -137,6 +137,9 @@ class DataWrapper:
         self.y = absorbances
         self.names = names
 
+        self.minX = [float(min(x)) for x in self.x]
+        self.maxX = [float(max(x)) for x in self.x]
+
     def formatData(self, xRange_in_nm = None, normalize = True, normMethod = "maxdiv", normRange = None, xType = "wavelength", aboveZero = True, inclusion = None):
         """
         takes in parsed absorbance and wavelength data and outputs formatted data for later plotting
@@ -389,6 +392,16 @@ class Plotter:
             case "energy (eV)":
                 self.units = "eV"
 
+        self.miniPlots = []
+        for xData,yData in zip(self.dataObj.x, self.dataObj.y):
+            fig = make_subplots()
+            fig.add_scatter(x = xData, y = yData, mode = "lines", showlegend = False)
+            fig.update_xaxes(title = "Wavelength(nm)")
+            fig.update_yaxes(title = "Absorbance")
+            fig.update_layout(template = "simple_white")
+
+            self.miniPlots.append(fig)
+
     def __getattr__(self, attr):
         return None
     
@@ -399,6 +412,15 @@ class Plotter:
     def update(self, **kwargs):
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
+    
+    def updateMiniPlot(self, index, normRange = None):
+        fig = self.miniPlots[index]
+        fig["layout"]["shapes"] = [] # removes all previous vertical lines from fig
+
+        if normRange is not None:
+            normLeft, normRight = normRange
+            fig.add_shape(x0 = normLeft, x1 = normLeft, y0 = 0, y1 = 1, xref = "x", yref = "paper", type = "line", line = dict(color = "orange", dash = "dash", width = 2), opacity = 0.8)
+            fig.add_shape(x0 = normRight, x1 = normRight, y0 = 0, y1 = 1, xref = "x", yref = "paper", type = "line", line = dict(color = "orange", dash = "dash", width = 2), opacity = 0.8)
 
     def updateMainPlot(self):
         fig = make_subplots()
