@@ -4,7 +4,7 @@ Main GUI for Lipshultz group UV-vis plotting utility "mainGUI.py"
 programmed by: Noah Schwartzapfel
 currently maintained by: Noah Schwartzapfel
 
-for easy processing of Shimadzu UV-vis data into custom plots
+for easy processing of UV-vis data into custom plots
 containing several data series with normalization of maxima
 
 made to run on Streamlit community cloud
